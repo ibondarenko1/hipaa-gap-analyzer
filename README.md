@@ -1,4 +1,4 @@
-...........# HIPAA Gap Analyzer
+............# HIPAA Gap Analyzer
 
 **Summit Range Consulting** — HIPAA Security Rule (45 CFR §164.308–316) compliance gap analysis tool.
 
