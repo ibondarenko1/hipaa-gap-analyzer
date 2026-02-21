@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIPAA Gap Analyzer | Summit Range Consulting</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">▲</div>
+                <div>
+                    <div class="logo-name">Summit Range Consulting</div>
+                    <div class="logo-sub">HIPAA Security Rule — Gap Analyzer</div>
+                </div>
+            </div>
+            <div class="header-right">
+                <a href="/report" target="_blank" class="btn-report">📋 Generate Report</a>
+                <span class="wosb">WOSB Certified</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Risk Dashboard -->
+    <div class="risk-bar">
+        <div class="risk-inner">
+            <div class="risk-meter">
+                <div class="risk-label">Overall Risk Level</div>
+                <div class="risk-level {{ stats.risk_level|lower }}" id="risk-level">{{ stats.risk_level }}</div>
+            </div>
+            <div class="stat"><div class="stat-n" id="s-total">{{ stats.total }}</div><div class="stat-l">Controls</div></div>
+            <div class="stat compliant"><div class="stat-n" id="s-compliant">{{ stats.compliant }}</div><div class="stat-l">✅ Compliant</div></div>
+            <div class="stat partial"><div class="stat-n" id="s-partial">{{ stats.partial }}</div><div class="stat-l">⚠️ Partial</div></div>
+            <div class="stat gap"><div class="stat-n" id="s-gap">{{ stats.non_compliant }}</div><div class="stat-l">❌ Gaps</div></div>
+            <div class="stat critical"><div class="stat-n" id="s-critical">{{ stats.critical_gaps }}</div><div class="stat-l">🔴 Critical Gaps</div></div>
+            <div class="score-box">
+                <svg viewBox="0 0 100 100" class="score-ring">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" stroke-width="10"/>
+                    <circle id="score-circle" cx="50" cy="50" r="40" fill="none"
+                        stroke="{{ '#22c55e' if stats.risk_score >= 80 else '#f59e0b' if stats.risk_score >= 60 else '#ef4444' }}"
+                        stroke-width="10"
+                        stroke-dasharray="251.3"
+                        stroke-dashoffset="{{ 251.3 - (251.3 * stats.risk_score / 100) }}"
+                        stroke-linecap="round"
+                        transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="score-text" id="s-score">{{ stats.risk_score }}%</div>
+                <div class="score-label">Risk-Weighted Score</div>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-wrap">
+            <div class="progress-bar">
+                <div class="progress-fill compliant-fill" id="bar-compliant" style="width: {{ (stats.compliant / stats.total * 100)|round(1) }}%"></div>
+                <div class="progress-fill partial-fill" id="bar-partial" style="width: {{ (stats.partial / stats.total * 100)|round(1) }}%"></div>
+                <div class="progress-fill gap-fill" id="bar-gap" style="width: {{ (stats.non_compliant / stats.total * 100)|round(1) }}%"></div>
+            </div>
+            <div class="progress-legend">
+                <span class="leg-green">■ Compliant</span>
+                <span class="leg-yellow">■ Partial</span>
+                <span class="leg-red">■ Gap</span>
+                <span class="leg-gray">■ Not Assessed</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-inner">
+            <span class="filter-label">Filter:</span>
+            <button class="filter-btn active" onclick="filterControls('all', this)">All</button>
+            <button class="filter-btn" onclick="filterControls('non_compliant', this)">❌ Gaps Only</button>
+            <button class="filter-btn" onclick="filterControls('critical', this)">🔴 Critical</button>
+            <button class="filter-btn" onclick="filterControls('not_assessed', this)">⬜ Not Assessed</button>
+            <button class="filter-btn" onclick="filterControls('compliant', this)">✅ Compliant</button>
+        </div>
+    </div>
+
+    <main class="main">
+        {% for section_name, section in controls.items() %}
+        <div class="section-block">
+            <div class="section-header" onclick="toggleSection(this)">
+                <div class="section-left">
+                    <span class="chevron">▶</span>
+                    <span class="section-title">{{ section_name }}</span>
+                    <span class="section-count">{{ section.controls|length }} controls</span>
+                    <span class="weight-badge">Weight: {{ section.weight }}%</span>
+                </div>
+                <div class="section-tags">
+                    {% set ns = namespace(c=0,p=0,g=0,cr=0) %}
+                    {% for ctrl in section.controls %}
+                        {% if data.get(ctrl.id, {}).get('status') == 'compliant' %}{% set ns.c = ns.c+1 %}{% endif %}
+                        {% if data.get(ctrl.id, {}).get('status') == 'partial' %}{% set ns.p = ns.p+1 %}{% endif %}
+                        {% if data.get(ctrl.id, {}).get('status') == 'non_compliant' %}{% set ns.g = ns.g+1 %}{% endif %}
+                        {% if ctrl.risk == 'Critical' and data.get(ctrl.id, {}).get('status') not in ['compliant', 'partial'] %}{% set ns.cr = ns.cr+1 %}{% endif %}
+                    {% endfor %}
+                    <span class="tag green">{{ ns.c }} compliant</span>
+                    <span class="tag yellow">{{ ns.p }} partial</span>
+                    <span class="tag red">{{ ns.g }} gaps</span>
+                    {% if ns.cr > 0 %}<span class="tag crimson">{{ ns.cr }} critical</span>{% endif %}
+                </div>
+            </div>
+            <div class="section-body open">
+                {% for ctrl in section.controls %}
+                {% set cd = data.get(ctrl.id, {}) %}
+                {% set status = cd.get('status', 'not_assessed') %}
+                <div class="control-row {{ status }} risk-{{ ctrl.risk|lower }}"
+                     id="row-{{ ctrl.id }}"
+                     data-status="{{ status }}"
+                     data-risk="{{ ctrl.risk|lower }}">
+                    <div class="ctrl-meta">
+                        <div class="ctrl-id">{{ ctrl.id }}</div>
+                        <div class="ctrl-ref">{{ ctrl.ref }}</div>
+                        <div class="risk-badge {{ ctrl.risk|lower }}">{{ ctrl.risk }}</div>
+                        <div class="req-badge {{ 'required' if ctrl.required == 'Required' else 'addressable' }}">{{ ctrl.required }}</div>
+                    </div>
+                    <div class="ctrl-body">
+                        <div class="ctrl-name">{{ ctrl.name }}</div>
+                        <div class="ctrl-desc">{{ ctrl.description }}</div>
+                        {% if status in ('non_compliant', 'not_assessed') %}
+                        <div class="remediation">
+                            <span class="rem-label">💡 Recommended Action:</span> {{ ctrl.remediation }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="ctrl-actions">
+                        <div class="status-btns">
+                            <button class="sbtn compliant-btn {% if status == 'compliant' %}active{% endif %}"
+                                onclick="setStatus('{{ ctrl.id }}', 'compliant', this)">✅ Compliant</button>
+                            <button class="sbtn partial-btn {% if status == 'partial' %}active{% endif %}"
+                                onclick="setStatus('{{ ctrl.id }}', 'partial', this)">⚠️ Partial</button>
+                            <button class="sbtn gap-btn {% if status == 'non_compliant' %}active{% endif %}"
+                                onclick="setStatus('{{ ctrl.id }}', 'non_compliant', this)">❌ Gap</button>
+                        </div>
+                        <textarea class="notes" placeholder="Evidence / notes / remediation plan..."
+                            onblur="saveNotes('{{ ctrl.id }}', this.value)">{{ cd.get('notes', '') }}</textarea>
+                        {% if cd.get('updated') %}<div class="updated">Updated: {{ cd.updated[:10] }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
