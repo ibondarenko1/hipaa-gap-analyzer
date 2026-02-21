@@ -8,7 +8,7 @@
 - 🎯 **Risk-weighted compliance score** (Critical/High/Medium controls weighted differently)
 - 🔴 **Critical gap highlighting** with priority remediation guidance
 - 📊 **Real-time risk level indicator** (Critical / High / Medium / Low)
-- 🔎 **Filter by status** — view only gaps, critical items, or unassessed controls
+- 🔎 **Filter by status** - view only gaps, critical items, or unassessed controls
 - 📋 **Professional PDF-ready report** with executive summary and priority remediation list
 - 🌑 Dark theme, mobile responsive
 
